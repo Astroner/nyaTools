@@ -1,15 +1,7 @@
 !function () {
-	var cssRules = {
-		value:"",
-		root: document.createElement('style'),
-		push: function(arg){
-			if (!this.root.parentElement) {
-				document.head.appendChild(this.root);
-			}
-			this.value+=arg;
-			this.root.innerHTML=this.value;
-		}
-	};
+	var cssAsObj = [];//Массив со стилями
+
+	//Функция, возвращающая dom element
 	function createHTML(tag, args) {
 		if (!tag) {
 			return document.createElement('div');
@@ -50,23 +42,66 @@
 			return "-" + a.toLowerCase();
 		})
 	}
-	function createCss(selector, rules) {
-		var result = selector+" {"
-		for (var key in rules) {
-			if (rules.hasOwnProperty(key)) {
-				result+=CamelCaseParse(key) + ": " + rules[key] +";"
+	function addStyle(selector, rules) {
+		cssAsObj.push({
+			selector: selector,
+			rules: rules
+		});
+	}
+	function addStyleMany(object) {
+		for (prop in object) {
+			if (object.hasOwnProperty(prop)) {
+				addStyle(prop, object[prop]);
 			}
 		}
-		result+="}"
-		cssRules.push(result);
 	}
-	function createCssMany() {
-		for (var i = 0; i < arguments.length; i=i+2) {
-			createCss(arguments[i], arguments[i+1]);
+	function startStyle() {
+		var result = "",
+			container = createHTML('style', { type: "text/css" });
+		cssAsObj.forEach(function (elem) {
+			result+= getCssString(elem);
+		});
+
+		container.innerHTML = result;
+		document.head.appendChild(container);
+	}
+	function getCssString(item, namespace) {
+		var result = "",
+			prefix = "",
+			childrens = "";
+		if (namespace) {
+			if (item.selector[0]!==":") {
+				prefix = namespace + " ";
+			}else{
+				prefix = namespace;
+			}
 		}
+		result+=prefix + item.selector + " {";
+
+		for (var key in item.rules) {
+			if (item.rules.hasOwnProperty(key)) {
+				if(typeof item.rules[key]!="object"){
+					result+= CamelCaseParse(key)+ ": " + item.rules[key] + ";";
+				}else{
+					childrens+= getCssString({selector: key, rules: item.rules[key]}, prefix + item.selector)
+				}
+			}
+		}
+
+		return result + "}" + childrens
 	}
 	window.nya = {
 		cel: createHTML,
-		style: createCssMany
+		style: {
+			add: addStyleMany,
+			start: startStyle
+		},
+		ta: "text-align",
+		bg: "background",
+		fs: "font-size",
+		ff: "font-family",
+		trs: "transition",
+		jc: "justify-content",
+		br: "border-radius"
 	}
 }();
