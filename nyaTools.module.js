@@ -1,7 +1,29 @@
 var cssAsObj = [],//Массив со стилями
-		media = [];//массив с media queries
-//Функция, возвращающая dom element
-function createHTML(tag, args) {
+		media = [],//массив с media queries
+		units = {
+			width: "vw",
+			height: "vh",
+			margin: "px",
+			padding: "px",
+			"max-width": "vw",
+			"min-width": "vw",
+			"max-height": "vh",
+			"min-height": "vh",
+			transition: "s",
+			border: "px",
+			"border-left": "px",
+			"border-right": "px",
+			"border-top": "px",
+			"border-bottom": "px",
+			outline: "px",
+			"font-size": "px",
+			"border-radius": "px",
+			"box-shadow": "px"
+		};
+	//Функция, возвращающая dom element
+	function createHTML(tag, args) {
+		//tag = 'div'/'span'/e.t.c.
+		//args = { id: "mi", className: "test" }
 		if (!tag) {
 			return document.createElement('div');
 		}
@@ -34,15 +56,23 @@ function createHTML(tag, args) {
 		}
 
 		return result
-}
+	}
 	//Превращает КамелКейс в нормальные-слова
 	function CamelCaseParse(str) {
+		//str = camelCase -> camel-case
 		return str.replace(/[A-Z]/g, function (a) {
 			return "-" + a.toLowerCase();
 		})
 	}
 	//Добавляет форматированный объект в массив стилей
 	function addStyle(selector, rules) {
+		//selector = ".test"
+		//rules = { color: white }
+		//Если это глобальный тег медиа, то отправляем его в media
+		if (selector=="media") {
+			addGlobalMedia( rules );
+			return
+		}
 		cssAsObj.push({
 			selector: selector,
 			rules: rules
@@ -51,14 +81,16 @@ function createHTML(tag, args) {
 
 	//Даёт возможность заюзать addStyle много раз для пар ключ - значение
 	function addStyleMany(object) {
-		for (var prop in object) {
+		for (prop in object) {
 			if (object.hasOwnProperty(prop)) {
 				addStyle(prop, object[prop]);
 			}
 		}
 	}
+
 	//Запускает парсер js2css
 	function startStyle(mode) {
+		//mode = true/false
 		var result = "",//Результирующая строка
 			container = createHTML('style', { type: "text/css" });//контайнер для стилей
 			cssAsObj.forEach(function (elem) {//перерабатываем массив стилей
@@ -85,6 +117,15 @@ function createHTML(tag, args) {
 	}
 	//превращает {selector:".test", rules:{ color: white }} в .test{ color: white }
 	function getCssString(item, namespace) {
+		/*
+		item = {
+			selector: ".test",
+			rules:{
+				color: white
+			}
+		}
+		namespace = ".namespace"
+		*/
 		if (item.selector=="media") {//Прверка на медиа запрос
 			addMedia( namespace, item.rules );//Если да, то добавляем его в массив запросов через функцию
 			return "";
@@ -109,20 +150,21 @@ function createHTML(tag, args) {
 			if (item.rules.hasOwnProperty(key)) {
 				if(typeof item.rules[key]!="object"){
 					if (key == "transition") {
-						transitions.default = item.rules[key];
+						transitions.default = measured( CamelCaseParse(key), item.rules[key] );
 					}else{
-						result+= CamelCaseParse(key)+ ": " + item.rules[key] + ";";
+						//Возвращаем пару ключ: значение, где значение прогоняется через валидатор, добавляющий ед. измерения.
+						result+= CamelCaseParse(key)+ ": " + measured( CamelCaseParse(key), item.rules[key] ) + ";";
 					}
 				//Проверка на массив, т.е. на наличие встроенного transition'а
-				}else if(item.rules[key].forEach){
+				}else if(item.rules[key] instanceof Array){
 					transitions.push({
 						name: key,
 						dur: item.rules[key][1],
 						fun: item.rules[key][2],
 						del: item.rules[key][3],
 					});
-					result+= CamelCaseParse(key)+ ": " + item.rules[key][0] + ";";
-				}else{
+					result+= CamelCaseParse(key)+ ": " + measured( CamelCaseParse(key), item.rules[key][0] ) + ";";
+				}else if(item.rules[key] instanceof Object){
 					//Если тип свойстав - объект, значит это вложенность, а значит отправляем его в в getCssString c префиксом в параметрах. Такая рекурсия
 					childrens+= getCssString({selector: key, rules: item.rules[key]}, prefix + item.selector)
 				}
@@ -184,8 +226,54 @@ function createHTML(tag, args) {
 		}
 	}
 
-const STYLE_FOR_EXPORT = {
+	//Добавляет единицы измерения к свойствам
+	function measured(name, value) {
+		//name = "padding", value = "10px"/"10"/"10px auto"/"10 auto"
+		//Проверяем на наличие дефолтных единиц измерения в units{}
+		if (!units[name]) {
+			return value
+		}
+
+		//Если есть, то разбиваем строку на слова, работаем с ними и join'им в строку
+		return (value + "").split(" ").map(function ( item, index ) {
+			//Если item - число, то добавляем единицы измерения, т.е. в item'е нет px/vh e.t.c. 
+			if (Number(item)) {
+				//Потому что если они есть, то Number вернёт NaN(false)
+				return item + units[name]
+			}
+			return item;
+		}).join(" ");
+	}
+
+	//Устанавливает default'ные удиницы измерения для величин
+	function setDefaultUnits(prop, merge) {
+		//prop - объект со значениями
+		//merge - bool, говорящий мёрджить уже имеющиеся значения или нет
+		if (merge) {
+			units = Object.assign(units, prop)
+		}else{
+			units = prop;
+		}
+	}
+
+	//Обработчик для добавления глобальных media
+	function addGlobalMedia(rules) {
+		for (var key in rules) {
+			if (rules.hasOwnProperty(key)) {
+				if (!media[key]) {
+					media[key] = [];
+				}
+				for (var selector in rules[key]) {
+					if (rules[key].hasOwnProperty(selector)) {
+						media[key].push({ selector: selector, rules: rules[key][selector] });
+					}
+				}
+			}
+		}
+	}
+export createHTML as cel;
+export const style = {
 	add: addStyleMany,
-	start: startStyle
-};
-export { STYLE_FOR_EXPORT as style, createHTML as cel }
+	start: startStyle,
+	defUnits: setDefaultUnits
+}
