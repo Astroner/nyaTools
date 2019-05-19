@@ -1,8 +1,7 @@
-!function () {
-	var cssAsObj = [],//Массив со стилями
+var cssAsObj = [],//Массив со стилями
 		media = [];//массив с media queries
-	//Функция, возвращающая dom element
-	function createHTML(tag, args) {
+//Функция, возвращающая dom element
+function createHTML(tag, args) {
 		if (!tag) {
 			return document.createElement('div');
 		}
@@ -35,7 +34,7 @@
 		}
 
 		return result
-	}
+}
 	//Превращает КамелКейс в нормальные-слова
 	function CamelCaseParse(str) {
 		return str.replace(/[A-Z]/g, function (a) {
@@ -52,7 +51,7 @@
 
 	//Даёт возможность заюзать addStyle много раз для пар ключ - значение
 	function addStyleMany(object) {
-		for (prop in object) {
+		for (var prop in object) {
 			if (object.hasOwnProperty(prop)) {
 				addStyle(prop, object[prop]);
 			}
@@ -184,18 +183,9 @@
 			}
 		}
 	}
-	window.nya = {
-		cel: createHTML,
-		style: {
-			add: addStyleMany,
-			start: startStyle
-		},
-		ta: "text-align",
-		bg: "background",
-		fs: "font-size",
-		ff: "font-family",
-		trs: "transition",
-		jc: "justify-content",
-		br: "border-radius"
-	}
-}();
+
+const STYLE_FOR_EXPORT = {
+	add: addStyleMany,
+	start: startStyle
+};
+export { STYLE_FOR_EXPORT as style, createHTML as cel }
